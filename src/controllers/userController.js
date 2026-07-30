@@ -117,6 +117,9 @@ const createUser = asyncHandler(async (req, res) => {
     department,
     designation,
     status: status || "Active",
+    // Keep loginEnable consistent with status from the moment the
+    // employee is created, not just on later updates/toggles.
+    loginEnable: (status || "Active") === "Active",
     role: "employee",
     createdBy: req.user._id,
     password: tempPassword,
@@ -161,7 +164,12 @@ const updateUser = asyncHandler(async (req, res) => {
   if (phone !== undefined) user.phone = phone;
   if (department !== undefined) user.department = department;
   if (designation !== undefined) user.designation = designation;
-  if (status !== undefined) user.status = status;
+  if (status !== undefined) {
+    user.status = status;
+    // Keep loginEnable in lockstep with status, so the two can never
+    // silently disagree (Inactive always implies "cannot log in").
+    user.loginEnable = status === "Active";
+  }
 
   await user.save();
 
@@ -194,7 +202,10 @@ const deleteUser = asyncHandler(async (req, res) => {
 
 /**
  * @desc   Toggle whether an employee is allowed to log in (the toggle
- *         icon next to each row in User Management)
+ *         icon next to each row in User Management). This also flips
+ *         `status` between Active/Inactive to match, so the Status
+ *         column in the UI always reflects real login ability -
+ *         Inactive always means "cannot log in", never just a label.
  * @route  PATCH /api/users/:id/toggle-login
  * @access Private/Admin, Private/Superadmin
  */
@@ -206,12 +217,15 @@ const toggleLoginEnable = asyncHandler(async (req, res) => {
   }
 
   user.loginEnable = !user.loginEnable;
+  user.status = user.loginEnable ? "Active" : "Inactive";
   await user.save();
 
   res.status(200).json({
     success: true,
     message: `Login ${user.loginEnable ? "enabled" : "disabled"} for ${user.name}`,
     loginEnable: user.loginEnable,
+    status: user.status,
+    user: user.toSafeObject(),
   });
 });
 

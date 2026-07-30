@@ -101,6 +101,15 @@ const userSchema = new mongoose.Schema(
       type: Date,
       default: null,
     },
+    refreshTokenHash: {
+      type: String,
+      select: false,
+      default: null,
+    },
+    refreshTokenExpires: {
+      type: Date,
+      default: null,
+    },
   },
   { timestamps: true }
 );
@@ -122,6 +131,7 @@ userSchema.methods.comparePassword = async function (candidatePassword) {
 userSchema.methods.toSafeObject = function () {
   const obj = this.toObject();
   delete obj.password;
+  delete obj.refreshTokenHash;
   return obj;
 };
 
